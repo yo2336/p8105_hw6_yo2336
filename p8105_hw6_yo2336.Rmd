@@ -1,0 +1,10 @@
+---
+title: "p8105_hw6_yo2336"
+author: "Yoo Rim Oh"
+output: github_document
+---
+
+```{r setup, include = FALSE}
+library(tidyverse)
+```
+
