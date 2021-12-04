@@ -6,5 +6,84 @@ output: github_document
 
 ```{r setup, include = FALSE}
 library(tidyverse)
+library(modelr)
+```
+
+
+# Problem 1
+
+Load and clean data
+```{r}
+birth_weight =
+  read_csv("data/birthweight.csv") %>%
+  janitor::clean_names() %>%
+  mutate_at(c("babysex", "frace", "malform", "mrace"), as.factor)
+
+summary(is.na(birth_weight))
+```
+
+
+Regression model for birth weight
+```{r}
+birth_weight_fit = lm(bwt ~ bhead + blength + delwt + gaweeks + wtgain, data = birth_weight)
+broom::tidy(birth_weight_fit) %>%
+  knitr::kable()
+
+left_join(add_residuals(birth_weight, birth_weight_fit),
+         add_predictions(birth_weight, birth_weight_fit)) %>%
+  select(bwt, gaweeks, wtgain, resid, pred) %>%
+  ggplot(aes(x = pred, y = resid)) +
+  geom_point() +
+  labs(title = "Residual vs Fitted", x = "Prediction", y = "Residual")
+  
+```
+
+
+Compare 3 Models
+```{r}
+cv_df = 
+  crossv_mc(birth_weight, 100) %>%
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble)) %>%
+  mutate(
+    fit_model = map(train, ~lm(bwt ~ bhead + blength + delwt + gaweeks + wtgain, data = .x)),
+    compare_model_1 = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+    compare_model_2 = map(train, ~lm(bwt ~ bhead + blength + babysex + bhead * blength + 
+                                       bhead * babysex + blength * babysex, data = .x))) %>%
+  mutate(
+    rmse_fit = map2_dbl(fit_model, test, ~rmse(model = .x, data = .y)),
+    rmse_model_1 = map2_dbl(compare_model_1, test, ~rmse(model = .x, data = .y)),
+    rmse_model_2 = map2_dbl(compare_model_2, test, ~rmse(model = .x, data = .y)))
+
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) + 
+  geom_violin() +
+  labs(title = "3 Model Comparison", x = "Model", y = "RMSE")
+```
+
+
+# Problem 2
+
+Load data
+```{r}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
 ```
 
