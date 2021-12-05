@@ -13,6 +13,10 @@ library(modelr)
 # Problem 1
 
 ## Load and clean data
+
+Load data using `read_csv` and changed columns `babysex`, `frace`, `malform`, and `mrace` 
+as factor vectors. 
+
 ```{r}
 birth_weight =
   read_csv("data/birthweight.csv") %>%
@@ -22,8 +26,24 @@ birth_weight =
 summary(is.na(birth_weight))
 ```
 
+As a result, this data frame has `r ncol(birth_weight)` variables named, 
+`r names(birth_weight)` with total of `r nrow(birth_weight)` observations.
+
+In order to check that this data does not have any missing values, used `summary(is.na(birth_weight))`.
+No NA present in this data.
+
 
 ## Regression model for birth weight
+
+A linear regression model for birth weight based on hypothesis created using `lm()` and 
+named it `birth_weight_fit`. `bwt` was the response and predictors were `bhead`, `blength`, 
+`delwt`, `gaweeks`, and `wtgain` to observe how baby's length, head circumference, gestational 
+age along with mother's weight gain and weight at the time of delivery effect baby's birth weight.
+
+I hypothesized that the the size of the baby at birth, including length and head circumference, and
+the weight of mother in relation to the gestational age would have an effect on the ultimate weight 
+of the baby at birth.
+
 ```{r}
 birth_weight_fit = lm(bwt ~ bhead + blength + delwt + gaweeks + wtgain, data = birth_weight)
 broom::tidy(birth_weight_fit) %>%
@@ -40,6 +60,11 @@ left_join(add_residuals(birth_weight, birth_weight_fit),
 
 
 ## Compare 3 Models
+
+Compared the hypothesis driven model from above (called fit) with a model (called model 1) with 
+length at birth and gestational age as predictors and another model (called model 2) with head
+circumference, length, sex, and all interactions between. Used `crossv_mc()` to compare in terms of 
+the cross-validated prediction error.
 ```{r}
 cv_df = 
   crossv_mc(birth_weight, 100) %>%
@@ -69,10 +94,14 @@ cv_df %>%
   labs(title = "3 Model Comparison", x = "Model", y = "RMSE")
 ```
 
+The model with least amount of predictors (model 1) had generally higher RMSE distribution
+when compared with the other 2 models.
 
 # Problem 2
 
 ## Load data
+
+Will be focusing on `tmin` and `tmax`.
 ```{r}
 weather_df = 
   rnoaa::meteo_pull_monitors(
@@ -89,6 +118,9 @@ weather_df =
 
 
 ## Bootstrap
+
+Used `bootstrap()` to create 5000 bootstrap samples. These samples were used to evaluate simple 
+linear regression with `tmax` as the response and `tmin` as the predictor.
 ```{r}
 weather_bootstrap =
   weather_df %>%
@@ -107,6 +139,9 @@ bootstrap_results =
 ```
 
 ## r^2
+
+The r^2 values were extracted directly from `broom::glance` which were then used to 
+calculate 95% confidence interval.
 ```{r}
 bootstrap_results %>%
   ggplot(aes(x = r_squared)) + 
@@ -120,8 +155,12 @@ bootstrap_results %>%
   knitr::kable(caption = "95% Confidence Interval for r^2")
 ```
 
+The distribution of r^2 resemble a normal distribution.
 
 ## log(β_0∗β_1)
+
+The log(β_0∗β_1) values were calculated from log(`intercept` estimate * `tmin` estimate) which were
+then used to calculate 95% confidence interval.
 ```{r}
 log_results =
   bootstrap_results %>%
@@ -144,3 +183,4 @@ log_results %>%
   knitr::kable(caption = "95% Confidence Interval for log(β_0∗β_1)")
 ```
 
+The distribution of log(β_0∗β_1) resemble a normal distribution
