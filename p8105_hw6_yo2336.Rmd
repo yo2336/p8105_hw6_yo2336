@@ -12,7 +12,7 @@ library(modelr)
 
 # Problem 1
 
-Load and clean data
+## Load and clean data
 ```{r}
 birth_weight =
   read_csv("data/birthweight.csv") %>%
@@ -23,7 +23,7 @@ summary(is.na(birth_weight))
 ```
 
 
-Regression model for birth weight
+## Regression model for birth weight
 ```{r}
 birth_weight_fit = lm(bwt ~ bhead + blength + delwt + gaweeks + wtgain, data = birth_weight)
 broom::tidy(birth_weight_fit) %>%
@@ -39,7 +39,7 @@ left_join(add_residuals(birth_weight, birth_weight_fit),
 ```
 
 
-Compare 3 Models
+## Compare 3 Models
 ```{r}
 cv_df = 
   crossv_mc(birth_weight, 100) %>%
@@ -72,7 +72,7 @@ cv_df %>%
 
 # Problem 2
 
-Load data
+## Load data
 ```{r}
 weather_df = 
   rnoaa::meteo_pull_monitors(
@@ -85,5 +85,62 @@ weather_df =
     tmin = tmin / 10,
     tmax = tmax / 10) %>%
   select(name, id, everything())
+```
+
+
+## Bootstrap
+```{r}
+weather_bootstrap =
+  weather_df %>%
+  bootstrap(5000)
+
+bootstrap_results =
+  weather_bootstrap %>%
+  mutate(
+    models = map(strap, ~lm(tmax ~ tmin, data = .x)),
+    results = map(models, broom::tidy),
+    results2 = map(models, broom::glance)) %>%
+  unnest(results, results2) %>%
+  select(.id, term, estimate, r.squared) %>%
+  janitor::clean_names()
+
+```
+
+## r^2
+```{r}
+bootstrap_results %>%
+  ggplot(aes(x = r_squared)) + 
+  geom_density() +
+  labs(title = "Distribution of r^2")
+
+bootstrap_results %>%
+  summarize(
+    ci_lower = quantile(r_squared, 0.025), 
+    ci_upper = quantile(r_squared, 0.975)) %>%
+  knitr::kable(caption = "95% Confidence Interval for r^2")
+```
+
+
+## log(β_0∗β_1)
+```{r}
+log_results =
+  bootstrap_results %>%
+  pivot_wider(
+    names_from = "term",
+    values_from = "estimate"
+  ) %>%
+  janitor::clean_names() %>%
+  mutate(log = log(intercept * tmin))
+
+log_results %>%
+  ggplot(aes(x = log)) + 
+  geom_density() +
+  labs(title = "Distribution of log(β_0∗β_1)", x = "log(β_0∗β_1)")
+
+log_results %>%
+  summarize(
+    ci_lower = quantile(log, 0.025), 
+    ci_upper = quantile(log, 0.975)) %>%
+  knitr::kable(caption = "95% Confidence Interval for log(β_0∗β_1)")
 ```
 
